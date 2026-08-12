@@ -20,6 +20,7 @@ def telegram_mesaj_gonder(mesaj):
         print(f"Telegram hatası: {e}")
 
 
+
 def ucus_tara():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Tarama başlatıldı...")
 
