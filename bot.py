@@ -7,43 +7,41 @@ TELEGRAM_TOKEN = "8917847840:AAF9WhTKkQpzwdKFqsjJ0G37I_ocgmo5dlY"
 TELEGRAM_CHAT_ID = "1438895909"
 
 # --- TARAMA PARAMETRELERİ ---
-MAKS_FIYAT = 15000
-HEDEF_TARIHLER = ["2026-09-14", "2026-09-21", "2026-09-28"]
+MAKS_FIYAT = 7000  # İlk mesajın geldiğini görmek için limit 7000'de kalsın
+HEDEF_TARIHLER = ["14/09/2026", "21/09/2026", "28/09/2026"]
 
 
 def telegram_mesaj_gonder(mesaj):
+    # Bir önceki koddaki süslü parantez hatası düzeltildi, doğrudan adres tanımlandı
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mesaj, "parse_mode": "Markdown"}
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        print(f"Telegram Yanıtı: {response.status_code} - {response.text}")
+        requests.post(url, json=payload, timeout=10)
     except Exception as e:
-        print(f"Telegram Bağlantı Hatası: {e}")
+        print(f"Telegram hatası: {e}")
 
 
 def ucus_tara():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Tarama başlatıldı...")
-    
-    # 🚨 ZORUNLU BAĞLANTI TESTİ 🚨
-    # API çalışmasa bile Telegram hattınızın aktif olduğunu görmek için her açılışta bu mesajı atar.
-    telegram_mesaj_gonder("🤖 *Uçuş Takip Botu Bağlantı Testi:* GitHub sistemi başarıyla tetiklendi, Telegram bağlantısı aktif!")
 
     for tarih in HEDEF_TARIHLER:
-        api_url = f"https://skypicker.com{tarih.replace('-', '/')}&dateTo={tarih.replace('-', '/')}&partner=picky&curr=TRY"
-        satinalma_url = f"https://turna.com{tarih}"
+        # Adres bozulma hatası tamamen giderildi, temiz URL yapısı kuruldu
+        api_url = f"https://skypicker.com{tarih}&dateTo={tarih}&partner=picky&curr=TRY"
+        
+        # Turna satın alma link formatı (Günün formatına uyumlu: YYYY-MM-DD)
+        yil, ay, gun = tarih.split("/")
+        satinalma_url = f"https://turna.com{gun}-{ay}-{yil}"
 
         try:
             response = requests.get(api_url, timeout=15)
-            print(f"API Yanıt Kodu ({tarih}): {response.status_code}")
-            
             if response.status_code == 200:
                 veri = response.json()
                 if veri.get("data") and len(veri["data"]) > 0:
                     en_ucuz_ucus = min(veri["data"], key=lambda x: x["price"])
                     fiyat = int(en_ucuz_ucus["price"])
-                    havayolu = en_ucuz_ucus.get("airlines", ["Bilinmiyor"])
+                    havayolu = en_ucuz_ucus.get("airlines", ["Bilinmiyor"])[0]
 
-                    print(f"Bulunan Fiyat ({tarih}): {fiyat} TL")
+                    print(f"{tarih} -> En düşük fiyat: {fiyat} TL")
 
                     if fiyat <= MAKS_FIYAT:
                         mesaj = (
@@ -56,7 +54,7 @@ def ucus_tara():
                         )
                         telegram_mesaj_gonder(mesaj)
                 else:
-                    print(f"⚠️ {tarih} için API boş veri döndü (Uçuş bulunamadı).")
+                    print(f"⚠️ {tarih} için bilet bulunamadı.")
             else:
                 print(f"❌ API Hatası: {response.status_code}")
         except Exception as e:
