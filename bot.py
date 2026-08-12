@@ -15,30 +15,35 @@ def telegram_mesaj_gonder(mesaj):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mesaj, "parse_mode": "Markdown"}
     try:
-        requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10)
+        print(f"Telegram Yanıtı: {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"Telegram hatası: {e}")
-
+        print(f"Telegram Bağlantı Hatası: {e}")
 
 
 def ucus_tara():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Tarama başlatıldı...")
+    
+    # 🚨 ZORUNLU BAĞLANTI TESTİ 🚨
+    # API çalışmasa bile Telegram hattınızın aktif olduğunu görmek için her açılışta bu mesajı atar.
+    telegram_mesaj_gonder("🤖 *Uçuş Takip Botu Bağlantı Testi:* GitHub sistemi başarıyla tetiklendi, Telegram bağlantısı aktif!")
 
     for tarih in HEDEF_TARIHLER:
-        # GitHub üzerinden doğrudan çalışan engelsiz API bağlantısı
         api_url = f"https://skypicker.com{tarih.replace('-', '/')}&dateTo={tarih.replace('-', '/')}&partner=picky&curr=TRY"
         satinalma_url = f"https://turna.com{tarih}"
 
         try:
             response = requests.get(api_url, timeout=15)
+            print(f"API Yanıt Kodu ({tarih}): {response.status_code}")
+            
             if response.status_code == 200:
                 veri = response.json()
-                if veri.get("data"):
+                if veri.get("data") and len(veri["data"]) > 0:
                     en_ucuz_ucus = min(veri["data"], key=lambda x: x["price"])
                     fiyat = int(en_ucuz_ucus["price"])
-                    havayolu = en_ucuz_ucus.get("airlines", ["Bilinmiyor"])[0]
+                    havayolu = en_ucuz_ucus.get("airlines", ["Bilinmiyor"])
 
-                    print(f"{tarih} -> En düşük fiyat: {fiyat} TL")
+                    print(f"Bulunan Fiyat ({tarih}): {fiyat} TL")
 
                     if fiyat <= MAKS_FIYAT:
                         mesaj = (
@@ -51,7 +56,7 @@ def ucus_tara():
                         )
                         telegram_mesaj_gonder(mesaj)
                 else:
-                    print(f"⚠️ {tarih} için bilet bulunamadı.")
+                    print(f"⚠️ {tarih} için API boş veri döndü (Uçuş bulunamadı).")
             else:
                 print(f"❌ API Hatası: {response.status_code}")
         except Exception as e:
@@ -61,5 +66,4 @@ def ucus_tara():
 
 
 if __name__ == "__main__":
-    # GitHub Actions her tetiklendiğinde bir kez tarama yapar
     ucus_tara()
