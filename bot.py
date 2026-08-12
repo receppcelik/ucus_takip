@@ -10,15 +10,18 @@ import requests
 # AYARLAR
 # =========================================================
 
-ORIGIN = "SAW"          # Sabiha Gökçen
-DESTINATION = "ERZ"     # Erzurum
+ORIGIN = "SAW"
+DESTINATION = "ERZ"
 
-PRICE_LIMIT = 5000      # 5.000 TL altı bildirim
+# 5.000 TL'nin altındaki fiyatlarda bildirim
+PRICE_LIMIT = 5000
 
+# Eylül 2026
 START_DATE = date(2026, 9, 1)
 END_DATE = date(2026, 9, 30)
 
-CHECK_INTERVAL = 600     # 600 saniye = 10 dakika
+# 10 dakika
+CHECK_INTERVAL = 600
 
 AMADEUS_URL = "https://api.amadeus.com"
 
@@ -26,18 +29,18 @@ STATE_FILE = "sent_prices.json"
 
 
 # =========================================================
-# SECRET'LAR
+# GİZLİ BİLGİLER
 # =========================================================
 
 AMADEUS_CLIENT_ID = os.environ["AMADEUS_CLIENT_ID"]
 AMADEUS_CLIENT_SECRET = os.environ["AMADEUS_CLIENT_SECRET"]
 
-TELEGRAM_BOT_TOKEN = os.environ["8917847840:AAF9WhTKkQpzwdKFqsjJ0G37I_ocgmo5dlY"]
-TELEGRAM_CHAT_ID = os.environ["1438895909"]
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 
 # =========================================================
-# AMADEUS TOKEN
+# AMADEUS TOKEN AL
 # =========================================================
 
 def get_amadeus_token():
@@ -62,7 +65,7 @@ def get_amadeus_token():
 
 
 # =========================================================
-# UÇUŞ ARAMA
+# UÇUŞLARI ARA
 # =========================================================
 
 def search_flights(token, departure_date):
@@ -92,10 +95,12 @@ def search_flights(token, departure_date):
     if response.status_code != 200:
 
         print(
-            f"[HATA] {departure_date} "
-            f"{response.status_code}: "
-            f"{response.text[:300]}"
+            f"[API HATASI] "
+            f"{departure_date} "
+            f"{response.status_code}"
         )
+
+        print(response.text[:500])
 
         return []
 
@@ -103,7 +108,7 @@ def search_flights(token, departure_date):
 
 
 # =========================================================
-# EN UCUZ UÇUŞ
+# EN UCUZ UÇUŞU BUL
 # =========================================================
 
 def find_cheapest_offer(offers):
@@ -118,14 +123,25 @@ def find_cheapest_offer(offers):
                 offer["price"]["grandTotal"]
             )
 
-            if cheapest is None or price < cheapest[0]:
+            if cheapest is None:
 
                 cheapest = (
                     price,
                     offer
                 )
 
-        except (KeyError, TypeError, ValueError):
+            elif price < cheapest[0]:
+
+                cheapest = (
+                    price,
+                    offer
+                )
+
+        except (
+            KeyError,
+            TypeError,
+            ValueError
+        ):
 
             continue
 
@@ -133,7 +149,7 @@ def find_cheapest_offer(offers):
 
 
 # =========================================================
-# TELEGRAM
+# TELEGRAM MESAJI GÖNDER
 # =========================================================
 
 def send_telegram(message):
@@ -156,11 +172,11 @@ def send_telegram(message):
 
     response.raise_for_status()
 
-    print("[OK] Telegram bildirimi gönderildi.")
+    print("[TELEGRAM] Bildirim gönderildi.")
 
 
 # =========================================================
-# BİLDİRİM GEÇMİŞİ
+# BİLDİRİM GEÇMİŞİNİ OKU
 # =========================================================
 
 def load_state():
@@ -184,6 +200,10 @@ def load_state():
         return {}
 
 
+# =========================================================
+# BİLDİRİM GEÇMİŞİNİ KAYDET
+# =========================================================
+
 def save_state(state):
 
     with open(
@@ -201,7 +221,7 @@ def save_state(state):
 
 
 # =========================================================
-# UÇUŞ BİLGİLERİ
+# UÇUŞ DETAYLARI
 # =========================================================
 
 def get_flight_details(offer):
@@ -220,9 +240,7 @@ def get_flight_details(offer):
             "stops": "?"
         }
 
-    itinerary = itineraries[0]
-
-    segments = itinerary.get(
+    segments = itineraries[0].get(
         "segments",
         []
     )
@@ -236,15 +254,19 @@ def get_flight_details(offer):
             "stops": "?"
         }
 
-    first = segments[0]
-    last = segments[-1]
+    first_segment = segments[0]
+    last_segment = segments[-1]
 
-    departure = first["departure"].get(
+    departure = first_segment[
+        "departure"
+    ].get(
         "at",
         "?"
     )
 
-    arrival = last["arrival"].get(
+    arrival = last_segment[
+        "arrival"
+    ].get(
         "at",
         "?"
     )
@@ -257,7 +279,10 @@ def get_flight_details(offer):
             "carrierCode"
         )
 
-        if airline and airline not in airlines:
+        if (
+            airline
+            and airline not in airlines
+        ):
 
             airlines.append(airline)
 
@@ -272,15 +297,26 @@ def get_flight_details(offer):
         stop_text = f"{stops} aktarma"
 
     return {
-        "departure": departure.replace("T", " "),
-        "arrival": arrival.replace("T", " "),
-        "airlines": ", ".join(airlines),
+        "departure": departure.replace(
+            "T",
+            " "
+        ),
+
+        "arrival": arrival.replace(
+            "T",
+            " "
+        ),
+
+        "airlines": ", ".join(
+            airlines
+        ),
+
         "stops": stop_text
     }
 
 
 # =========================================================
-# MESAJ OLUŞTUR
+# TELEGRAM MESAJI OLUŞTUR
 # =========================================================
 
 def create_message(
@@ -294,9 +330,9 @@ def create_message(
     )
 
     return (
-        "🚨 UCUZ UÇAK BİLETİ BULUNDU!\n\n"
+        "🚨 UCUZ UÇAK BİLETİ!\n\n"
 
-        "✈️ Rota: SAW → ERZ\n"
+        "✈️ SAW → ERZ\n"
 
         f"📅 Tarih: "
         f"{departure_date.strftime('%d.%m.%Y')}\n"
@@ -316,29 +352,32 @@ def create_message(
         f"🛬 Varış: "
         f"{details['arrival']}\n\n"
 
-        "⚠️ Fiyat anlık olarak değişebilir."
+        "⚠️ Fiyat satın alma sırasında "
+        "değişebilir."
     )
 
 
 # =========================================================
-# TÜM EYLÜLÜ TARA
+# EYLÜL'Ü TARA
 # =========================================================
 
 def scan_september():
 
     print()
     print("=" * 60)
+    print("✈️ SAW → ERZ UÇUŞ KONTROLÜ")
+    print("=" * 60)
 
     print(
-        "SAW → ERZ UÇUŞ KONTROLÜ"
+        f"Tarih: "
+        f"{START_DATE.strftime('%d.%m.%Y')} "
+        f"- "
+        f"{END_DATE.strftime('%d.%m.%Y')}"
     )
 
     print(
-        f"Tarih: {START_DATE} → {END_DATE}"
-    )
-
-    print(
-        f"Limit: {PRICE_LIMIT} TL"
+        f"Fiyat limiti: "
+        f"{PRICE_LIMIT} TL"
     )
 
     print("=" * 60)
@@ -376,7 +415,7 @@ def scan_september():
                 price, offer = result
 
                 print(
-                    f"    En ucuz: "
+                    f"   En ucuz: "
                     f"{price:.2f} TL"
                 )
 
@@ -392,56 +431,62 @@ def scan_september():
             else:
 
                 print(
-                    "    Uçuş bulunamadı."
+                    "   Uçuş bulunamadı."
                 )
 
         except Exception as error:
 
             print(
-                f"    Hata: {error}"
+                f"   Hata: {error}"
             )
 
         current_date += timedelta(
             days=1
         )
 
-        # API'yi arka arkaya zorlamamak için
+        # API çağrıları arasında bekle
         time.sleep(1)
 
-    print()
+    # -----------------------------------------------------
+    # SONUÇ
+    # -----------------------------------------------------
 
     if best_price is None:
 
+        print()
         print(
-            "[SONUÇ] Uçuş bulunamadı."
+            "❌ Hiç uçuş bulunamadı."
         )
 
         return
 
+    print()
     print(
-        f"[SONUÇ] En ucuz: "
+        f"💰 Eylül'deki en ucuz fiyat: "
         f"{best_price:.2f} TL"
     )
 
     print(
-        f"[SONUÇ] Tarih: "
-        f"{best_date}"
+        f"📅 Tarih: "
+        f"{best_date.strftime('%d.%m.%Y')}"
     )
 
     # -----------------------------------------------------
-    # FİYAT LİMİT ALTINDAYSA
+    # 5.000 TL KONTROLÜ
     # -----------------------------------------------------
 
     if best_price >= PRICE_LIMIT:
 
         print(
-            "[BİLDİRİM YOK] "
-            "Fiyat limitin altında değil."
+            "ℹ️ Fiyat 5.000 TL'nin altında değil."
         )
 
         return
 
-    # Aynı tarih + fiyat tekrar bildirilmesin
+    # -----------------------------------------------------
+    # AYNI FİYATI TEKRAR GÖNDERME
+    # -----------------------------------------------------
+
     price_key = (
         f"{best_date.isoformat()}_"
         f"{best_price:.2f}"
@@ -450,8 +495,8 @@ def scan_september():
     if price_key in state:
 
         print(
-            "[BİLDİRİM YOK] "
-            "Bu fiyat daha önce gönderildi."
+            "ℹ️ Bu fiyat daha önce Telegram'a "
+            "gönderildi."
         )
 
         return
@@ -483,9 +528,11 @@ def scan_september():
 def main():
 
     print()
-    print("🚀 Uçuş takip sistemi başlatıldı.")
-    print("⏱️ Kontrol aralığı: 10 dakika")
-    print("🌙 Sistem 24 saat çalışacak.")
+    print("🚀 Uçuş takip sistemi başladı.")
+    print("📍 SAW → ERZ")
+    print("📅 Eylül 2026")
+    print("💰 Limit: 5.000 TL")
+    print("⏱️ Kontrol: 10 dakikada bir")
     print()
 
     while True:
@@ -511,6 +558,9 @@ def main():
         )
 
 
-if __name__ == "__main__":
+# =========================================================
+# PROGRAMI BAŞLAT
+# =========================================================
 
+if __name__ == "__main__":
     main()
